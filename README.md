@@ -66,7 +66,7 @@ const submitData = async () => {
 | Option     | Type    | Required | Default   | Description                                         |
 |:-----------|:--------|----------|-----------|-----------------------------------------------------|
 | `url`      | String  | ✅ Yes    | undefined | API endpoint to sync data                           |
-| `method`   | Object  | ❌ No     | "POST"    | HTTP method (e.g., "POST", "PUT", etc.)             |
+| `method`   | String  | ❌ No     | "POST"    | HTTP method (e.g., "POST", "PUT", etc.)             |
 | `headers`  | Object  | ❌ No     | {}        | Additional headers (e.g., authentication token)     |
 | `keyPath`  | String  | ❌ No     | "id"      | The unique key for storing data in IndexedDB        |
 | `bulkSync` | Boolean | ❌ No     | false     | Set to true if your API accepts batch sync requests |
