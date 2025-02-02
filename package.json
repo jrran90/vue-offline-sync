@@ -1,6 +1,6 @@
 {
   "name": "vue-offline-sync",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A Vue 3 component for offline-first syncing. Save data while offline and sync it automatically when back online. Uses IndexedDB for storage.",
   "main": "dist/vue-offline-sync.umd.js",
   "module": "dist/vue-offline-sync.es.js",
@@ -17,7 +17,14 @@
     "test": "vitest",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["vue", "vue3", "offline", "sync", "indexedDB", "bulk"],
+  "keywords": [
+    "vue",
+    "vue3",
+    "offline",
+    "sync",
+    "indexedDB",
+    "bulk"
+  ],
   "author": "jrran90",
   "license": "ISC",
   "dependencies": {
