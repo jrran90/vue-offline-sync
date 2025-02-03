@@ -13,6 +13,8 @@ interface UseOfflineSyncOptions {
     bulkSync?: boolean;
 }
 
+const channel = new BroadcastChannel('vue-offline-sync');
+
 export function useOfflineSync(options: UseOfflineSyncOptions) {
     const state = reactive({
         isOnline: navigator.onLine,
@@ -38,6 +40,9 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
             console.error('Network error during sync:', error);
         }
 
+        // Notify other tabs that a sync occurred.
+        channel.postMessage({ type: 'synced' });
+
         // Refresh offline data after syncing
         await fetchOfflineData();
     };
@@ -60,6 +65,9 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
         } else {
             await saveData(data);
             await fetchOfflineData();
+
+            // Notify other tabs that new data was saved.
+            channel.postMessage({ type: 'new-data' });
         }
     };
 
@@ -112,6 +120,14 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
 
         window.addEventListener('offline', async () => {
             state.isOnline = false;
+        });
+
+        // Listen for updates from other tabs
+        channel.addEventListener('message', async (event) => {
+            if (event.data.type === 'synced' || event.data.type === 'new-data') {
+                console.log('[vue-offline-sync] Sync event received from another tab, reloading offline data...');
+                await fetchOfflineData();
+            }
         });
 
         await fetchOfflineData();
