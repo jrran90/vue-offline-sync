@@ -17,6 +17,10 @@
     "test": "vitest",
     "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jrran90/vue-offline-sync"
+  },
   "keywords": [
     "vue",
     "vue3",
@@ -27,6 +31,10 @@
   ],
   "author": "jrran90",
   "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jrran90/vue-offline-sync/issues"
+  },
+  "homepage": "https://github.com/jrran90/vue-offline-sync#readme",
   "dependencies": {
     "vue": "^3.5.13"
   },
