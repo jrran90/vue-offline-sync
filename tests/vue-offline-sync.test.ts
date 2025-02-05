@@ -1,161 +1,199 @@
-import {mount} from '@vue/test-utils';
 import {vi, describe, it, expect, beforeEach, afterEach} from 'vitest';
-import VueOfflineSync from '../src/vue-offline-sync';
 import {saveData, getData, clearData, removeData, setKeyPath} from '../src/utils/indexedDB';
+import {mount} from "@vue/test-utils";
+import {useOfflineSync} from '../src/vue-offline-sync';
+
+// Mock BroadcastChannel
+const postMessageMock = vi.fn();
+const addEventListenerMock = vi.fn();
+class MockBroadcastChannel {
+    postMessage = postMessageMock;
+    addEventListener = addEventListenerMock;
+    close = vi.fn();
+}
+vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
 
 // Mock IndexedDB Functions
-vi.mock('../src/utils/indexedDB', async (importOriginal) => {
-    const actual = await importOriginal();
+vi.mock('../src/utils/indexedDB', () => ({
+    saveData: vi.fn(),
+    getData: vi.fn(() => Promise.resolve([{id: 1, name: 'Test Data'}])),
+    clearData: vi.fn(),
+    removeData: vi.fn(),
+    setKeyPath: vi.fn(),
+}));
 
-    return {
-        saveData: vi.fn(),
-        getData: vi.fn(() => Promise.resolve([{id: 1, name: 'Test Data'}])),
-        clearData: vi.fn(),
-        removeData: vi.fn(),
-        setKeyPath: vi.fn(),
-    }
-});
+// Properly typed fetch mock
+vi.stubGlobal('fetch', vi.fn(async () =>
+    new Response(JSON.stringify({success: true}), {status: 200, headers: {'Content-Type': 'application/json'}})
+));
 
-// Mock global navigator and window objects
 beforeEach(() => {
     vi.restoreAllMocks();
+    vi.resetAllMocks();
 
     // Mock navigator.online
-    Object.defineProperty(globalThis.navigator, 'online', {
+    Object.defineProperty(globalThis.navigator, 'onLine', {
         value: true,
         writable: true,
     });
 
-    // Mock window.addEventListener
-    vi.spyOn(globalThis, 'addEventListener')
-
-    // Mock fetch globally, so it doesn't call the real API
-    globalThis.fetch = vi.fn(() =>
-        Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve({success: true}),
-        })
-    ) as unknown as typeof fetch;
+    // Mock event listeners
+    vi.spyOn(globalThis, 'addEventListener');
 });
 
 afterEach(() => {
     vi.restoreAllMocks();
     vi.resetAllMocks();
-})
+});
 
-describe('VueOfflineSync Component', () => {
+describe('useOfflineSync Composable', () => {
     it('should initialize correctly', async () => {
-        const wrapper = mount(VueOfflineSync);
-        await wrapper.vm.$nextTick();
-        expect(wrapper.vm.state.isOnline).toBe(true);
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync'});
+            },
+            template: '<div></div>'
+        });
+
+        const {state} = wrapper.vm;
+
+        expect(state.isOnline).toBe(true);
         expect(getData).toHaveBeenCalled();
     });
 
-    it('should save offline data', async () => {
-        const wrapper = mount(VueOfflineSync);
+    it('should save offline data when offline', async () => {
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync'});
+            },
+            template: '<div></div>'
+        });
+
+        const {saveOfflineData, state} = wrapper.vm;
+
+        state.isOnline = false;
         const testData = {id: 1, name: 'Test Data'};
 
-        wrapper.vm.state.isOnline = false;
-
-        await wrapper.vm.saveOfflineData(testData);
+        await saveOfflineData(testData);
 
         expect(saveData).toHaveBeenCalledWith(testData);
         expect(getData).toHaveBeenCalled();
     });
 
     it('should sync offline data when online', async () => {
-        const wrapper = mount(VueOfflineSync);
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync'});
+            },
+            template: '<div></div>'
+        });
 
-        wrapper.vm.state.isOnline = false;
-        await wrapper.vm.saveOfflineData({ id: 1, name: 'Test' });
+        const {saveOfflineData, syncOfflineData, state} = wrapper.vm;
 
-        wrapper.vm.state.isOnline = true;
-        await wrapper.vm.syncOfflineData();
+        state.isOnline = false;
+        await saveOfflineData({id: 1, name: 'Test'});
 
-        expect(globalThis.fetch).toHaveBeenCalled();
-        expect(clearData).toHaveBeenCalled();
+        state.isOnline = true;
+        await syncOfflineData();
+
+        expect(fetch).toHaveBeenCalled();
         expect(getData).toHaveBeenCalled();
     });
 
     it('should not sync if offline or no data', async () => {
-        const wrapper = mount(VueOfflineSync);
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync'});
+            },
+            template: '<div></div>'
+        });
 
-        wrapper.vm.state.isOnline = false;
-        wrapper.vm.state.offlineData = [{id: 1, name: 'Test'}];
-        await wrapper.vm.syncOfflineData();
-        expect(globalThis.fetch).not.toHaveBeenCalled();
+        const {syncOfflineData, state} = wrapper.vm;
 
-        wrapper.vm.state.isOnline = true;
-        wrapper.vm.state.offlineData = [];
-        await wrapper.vm.syncOfflineData();
-        expect(globalThis.fetch).not.toHaveBeenCalled();
+        state.isOnline = false;
+        await syncOfflineData();
+        expect(fetch).not.toHaveBeenCalled();
+
+        state.isOnline = true;
+        state.offlineData = [];
+        await syncOfflineData();
+        expect(fetch).not.toHaveBeenCalled();
     });
 
     it('should handle sync errors gracefully', async () => {
-        const wrapper = mount(VueOfflineSync, {
-            props: {url: 'https://mock-api.com/sync'},
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync'});
+            },
+            template: '<div></div>'
         });
 
-        wrapper.vm.state.isOnline = true;
-        wrapper.vm.state.offlineData = [{id: 1, name: 'Test'}];
+        const {syncOfflineData, state} = wrapper.vm;
 
-        // Simulate API failure
-        globalThis.fetch = vi.fn(() =>
-            Promise.resolve({
-                ok: false,
-                json: () => Promise.resolve({success: false}),
-            })
-        ) as unknown as typeof fetch;
+        state.isOnline = true;
+        state.offlineData = [{id: 1, name: 'Test'}];
 
-        await wrapper.vm.syncOfflineData();
+        vi.stubGlobal('fetch', vi.fn(async () =>
+            new Response(JSON.stringify({success: false}), {status: 500, headers: {'Content-Type': 'application/json'}})
+        ));
 
-        expect(globalThis.fetch).toHaveBeenCalled();
+        await syncOfflineData();
+
+        expect(fetch).toHaveBeenCalled();
         expect(removeData).not.toHaveBeenCalled();
     });
 });
 
-describe('VueOfflineSync Bulk and Individual Syncing', () => {
-    it('should send data as an array when bulkSync is true', async () => {
-        const wrapper = mount(VueOfflineSync, {
-            props: {url: 'https://mock-api.com/sync', bulkSync: true},
+describe('useOfflineSync Multi-Tab Support', () => {
+    it('should notify other tabs when data is saved', async () => {
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync'});
+            },
+            template: '<div></div>'
         });
 
-        wrapper.vm.state.isOnline = true;
-        wrapper.vm.state.offlineData = [
-            {id: 1, name: 'company A'},
-            {id: 2, name: 'company B'}
-        ];
+        const {state, saveOfflineData} = wrapper.vm;
 
-        await wrapper.vm.syncOfflineData();
+        state.isOnline = false;
+        await saveOfflineData({name: 'Test data'});
 
-        // ✅ Ensure only ONE bulk request was sent
-        expect(globalThis.fetch).toHaveBeenCalledTimes(1);
-        expect(globalThis.fetch).toHaveBeenCalledWith(
-            'https://mock-api.com/sync',
-            expect.objectContaining({
-                body: JSON.stringify([
-                    {name: 'company A'},
-                    {name: 'company B'}
-                ])
-            })
-        );
+        expect(postMessageMock).toHaveBeenCalledWith({type: 'new-data'});
     });
 
-    it('should send each entry individually when bulkSync is false', async () => {
-        const wrapper = mount(VueOfflineSync, {
-            props: {url: 'https://mock-api.com/sync', bulkSync: false},
+    it('should notify other tabs when data is synced', async () => {
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync'});
+            },
+            template: '<div></div>'
         });
 
-        wrapper.vm.state.isOnline = true;
-        wrapper.vm.state.offlineData = [
-            {id: 1, name: 'company A'},
-            {id: 2, name: 'company B'}
-        ];
+        const {state, syncOfflineData, saveOfflineData} = wrapper.vm;
 
-        await wrapper.vm.syncOfflineData();
+        state.isOnline = false;
+        await saveOfflineData({name: 'Test data new'});
 
-        expect(globalThis.fetch).toHaveBeenCalledTimes(2);
-        expect(globalThis.fetch).toHaveBeenNthCalledWith(1, 'https://mock-api.com/sync', expect.anything());
-        expect(globalThis.fetch).toHaveBeenNthCalledWith(2, 'https://mock-api.com/sync', expect.anything());
+        state.isOnline = true;
+        await syncOfflineData();
+
+        expect(postMessageMock).toHaveBeenCalledWith({ type: 'synced' });
+    });
+
+    it('should listen for updates from other tabs', async () => {
+        mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync'});
+            },
+            template: '<div></div>'
+        });
+
+        // Simulate an event being received
+        const eventHandler = addEventListenerMock.mock.calls[0][1];
+        const event = { data: { type: 'synced' } };
+
+        await eventHandler(event);
+
+        expect(getData).toHaveBeenCalled();
     });
 });
