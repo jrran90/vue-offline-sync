@@ -13,12 +13,17 @@ interface UseOfflineSyncOptions {
     bulkSync?: boolean;
 }
 
-const channel = new BroadcastChannel('vue-offline-sync');
+interface SyncState {
+    isOnline: boolean;
+    offlineData: SyncData[];
+}
 
 export function useOfflineSync(options: UseOfflineSyncOptions) {
-    const state = reactive({
+    const channel = new BroadcastChannel('vue-offline-sync');
+
+    const state: SyncState = reactive({
         isOnline: navigator.onLine,
-        offlineData: [] as SyncData[],
+        offlineData: [],
     });
 
     setKeyPath(options.keyPath || 'id');
