@@ -69,13 +69,14 @@ const submitData = async () => {
 
 ### ⚙️ Options
 
-| Option     | Type    | Required | Default   | Description                                         |
-|:-----------|:--------|:---------|:----------|:----------------------------------------------------|
-| `url`      | String  | ✅ Yes    | undefined | API endpoint to sync data                           |
-| `method`   | String  | ❌ No     | "POST"    | HTTP method (e.g., "POST", "PUT", etc.)             |
-| `headers`  | Object  | ❌ No     | {}        | Additional headers (e.g., authentication token)     |
-| `keyPath`  | String  | ❌ No     | "id"      | The unique key for storing data in IndexedDB        |
-| `bulkSync` | Boolean | ❌ No     | false     | Set to true if your API accepts batch sync requests |
+| Option       | Type     | Required | Default     | Description                                                                                                                                                |
+|:-------------|:---------|:---------|:------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `url`        | String   | ✅ Yes    | `undefined` | API endpoint to sync data                                                                                                                                  |
+| `method`     | String   | ❌ No     | "POST"      | HTTP method (e.g., "POST", "PUT", etc.)                                                                                                                    |
+| `headers`    | Object   | ❌ No     | {}          | Additional headers (e.g., authentication token)                                                                                                            |
+| `keyPath`    | String   | ❌ No     | "id"        | The unique key for storing data in IndexedDB                                                                                                               |
+| `bulkSync`   | Boolean  | ❌ No     | false       | Set to true if your API accepts batch sync requests                                                                                                        |
+| `uniqueKeys` | String[] | ❌ No     | `undefined` | Specifies the columns that must have unique values across all entries. If any of the defined columns contain duplicate values, the entry will be rejected. |
 
 ### 📡 States
 

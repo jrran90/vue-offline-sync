@@ -11,6 +11,7 @@ interface UseOfflineSyncOptions {
     headers?: Record<string, string>;
     keyPath?: string;
     bulkSync?: boolean;
+    uniqueKeys?: string[];
 }
 
 interface SyncState {
@@ -73,6 +74,18 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
                 state.isSyncInProgress = false;
             }
         } else {
+            if (options.uniqueKeys && options.uniqueKeys.length > 0) {
+                const existingData = await getData()
+                const isDuplicate = existingData.some((entry: SyncData) =>
+                    options.uniqueKeys.some(key => entry[key] === data[key])
+                )
+
+                if (isDuplicate) {
+                    console.warn('[vue-offline-sync] Duplicate entry detected. Skipping insert: ', data);
+                    return;
+                }
+            }
+
             await saveData(data);
             await fetchOfflineData();
 

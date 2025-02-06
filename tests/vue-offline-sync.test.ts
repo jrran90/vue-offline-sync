@@ -6,11 +6,13 @@ import {useOfflineSync} from '../src/vue-offline-sync';
 // Mock BroadcastChannel
 const postMessageMock = vi.fn();
 const addEventListenerMock = vi.fn();
+
 class MockBroadcastChannel {
     postMessage = postMessageMock;
     addEventListener = addEventListenerMock;
     close = vi.fn();
 }
+
 vi.stubGlobal('BroadcastChannel', MockBroadcastChannel);
 
 // Mock IndexedDB Functions
@@ -177,7 +179,7 @@ describe('useOfflineSync Multi-Tab Support', () => {
         state.isOnline = true;
         await syncOfflineData();
 
-        expect(postMessageMock).toHaveBeenCalledWith({ type: 'synced' });
+        expect(postMessageMock).toHaveBeenCalledWith({type: 'synced'});
     });
 
     it('should listen for updates from other tabs', async () => {
@@ -190,10 +192,92 @@ describe('useOfflineSync Multi-Tab Support', () => {
 
         // Simulate an event being received
         const eventHandler = addEventListenerMock.mock.calls[0][1];
-        const event = { data: { type: 'synced' } };
+        const event = {data: {type: 'synced'}};
 
         await eventHandler(event);
 
         expect(getData).toHaveBeenCalled();
+    });
+});
+
+describe('useOfflineSync - Unique Constraint (uniqueKeys)', () => {
+    it('should insert data if unique constraint is not violated', async () => {
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync', uniqueKeys: ['email']});
+            },
+            template: '<div></div>'
+        });
+
+        const {state, saveOfflineData} = wrapper.vm;
+
+        state.isOnline = false;
+        await saveOfflineData({email: "johndoe@gmail.com", name: "John"});
+
+        expect(saveData).toHaveBeenCalledWith({email: "johndoe@gmail.com", name: "John"});
+    });
+
+    it('should not insert duplicate data based on uniqueKeys constraint', async () => {
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync', uniqueKeys: ['email']});
+            },
+            template: '<div></div>'
+        });
+
+        const {saveOfflineData} = wrapper.vm;
+
+        // Simulate existing data in IndexedDB
+        getData.mockResolvedValue([{email: "johndoe@gmail.com", name: "John"}]);
+
+        await saveOfflineData({email: "johndoe@gmail.com", name: "Another John"});
+
+        expect(saveData).not.toHaveBeenCalled();
+    });
+
+    it('should allow insertion when a different unique field value is provided', async () => {
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync', uniqueKeys: ['email']});
+            },
+            template: '<div></div>'
+        });
+
+        const {state, saveOfflineData} = wrapper.vm;
+
+        state.isOnline = false;
+
+        // Simulate existing data
+        getData.mockResolvedValue([{email: "johndoe@gmail.com", name: "John"}]);
+
+        await saveOfflineData({email: "janedoe@gmail.com", name: "Jane"});
+
+        expect(saveData).toHaveBeenCalledWith({email: "janedoe@gmail.com", name: "Jane"});
+    });
+
+    it('should enforce uniqueness based on multiple fields', async () => {
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({url: 'https://mock-api.com/sync', uniqueKeys: ['email', 'name']});
+            },
+            template: '<div></div>'
+        });
+
+        const {state, saveOfflineData} = wrapper.vm;
+
+        state.isOnline = false;
+
+        // Simulate existing data
+        getData.mockResolvedValue([
+            {email: "johndoe@gmail.com", name: "John"}
+        ]);
+
+        await saveOfflineData({email: "johndoe@gmail.com", name: "John"}); // Duplicate on both fields
+        await saveOfflineData({email: "johndoe@gmail.com", name: "Another John"}); // Unique "name", should be inserted
+        await saveOfflineData({email: "anotheremail@gmail.com", name: "John"}); // Duplicate "name" → Should be rejected
+        await saveOfflineData({email: "unique@gmail.com", name: "Unique Name"}); // Fully unique → Should be inserted
+
+        expect(saveData).toHaveBeenCalledTimes(1);
+        expect(saveData).toHaveBeenCalledWith({email: "unique@gmail.com", name: "Unique Name"});;
     });
 });
