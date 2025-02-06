@@ -16,6 +16,7 @@ interface UseOfflineSyncOptions {
 interface SyncState {
     isOnline: boolean;
     offlineData: SyncData[];
+    isSyncInProgress: boolean;
 }
 
 export function useOfflineSync(options: UseOfflineSyncOptions) {
@@ -24,6 +25,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
     const state: SyncState = reactive({
         isOnline: navigator.onLine,
         offlineData: [],
+        isSyncInProgress: false,
     });
 
     setKeyPath(options.keyPath || 'id');
@@ -54,6 +56,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
 
     const saveOfflineData = async (data: SyncData) => {
         if (state.isOnline) {
+            state.isSyncInProgress = true;
             try {
                 const {[options.keyPath || 'id']: _, ...rest} = data;
                 await fetch(options.url, {
@@ -66,6 +69,8 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
                 });
             } catch (error) {
                 console.error('Network error while syncing:', error);
+            } finally {
+                state.isSyncInProgress = false;
             }
         } else {
             await saveData(data);
@@ -120,7 +125,9 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
     onMounted(async () => {
         window.addEventListener('online', async () => {
             state.isOnline = true;
+            state.isSyncInProgress = true;
             await syncOfflineData();
+            state.isSyncInProgress = false;
         });
 
         window.addEventListener('offline', async () => {

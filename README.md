@@ -1,6 +1,7 @@
 # Vue Offline Sync 🔄
 
-A **Vue 3 composable** for **offline-first syncing**. Save data while offline and automatically sync it when back online.
+A **Vue 3 composable** for **offline-first syncing**. Save data while offline and automatically sync it when back
+online.
 Uses **IndexedDB** for offline storage.
 
 ## 🚀 Features
@@ -21,7 +22,9 @@ npm install vue-offline-sync
 ## ⚡ Quick Start
 
 ### 1️⃣ Basic Usage
-Below is the sample implementation
+
+Here’s a basic implementation example
+
 ```vue
 
 <script setup>
@@ -66,20 +69,21 @@ const submitData = async () => {
 
 ### ⚙️ Options
 
-| Option     | Type    | Required  | Default    | Description                                          |
-|:-----------|:--------|:----------|:-----------|:-----------------------------------------------------|
-| `url`      | String  | ✅ Yes     | undefined  | API endpoint to sync data                            |
-| `method`   | String  | ❌ No      | "POST"     | HTTP method (e.g., "POST", "PUT", etc.)              |
-| `headers`  | Object  | ❌ No      | {}         | Additional headers (e.g., authentication token)      |
-| `keyPath`  | String  | ❌ No      | "id"       | The unique key for storing data in IndexedDB         |
-| `bulkSync` | Boolean | ❌ No      | false      | Set to true if your API accepts batch sync requests  |
+| Option     | Type    | Required | Default   | Description                                         |
+|:-----------|:--------|:---------|:----------|:----------------------------------------------------|
+| `url`      | String  | ✅ Yes    | undefined | API endpoint to sync data                           |
+| `method`   | String  | ❌ No     | "POST"    | HTTP method (e.g., "POST", "PUT", etc.)             |
+| `headers`  | Object  | ❌ No     | {}        | Additional headers (e.g., authentication token)     |
+| `keyPath`  | String  | ❌ No     | "id"      | The unique key for storing data in IndexedDB        |
+| `bulkSync` | Boolean | ❌ No     | false     | Set to true if your API accepts batch sync requests |
 
 ### 📡 States
 
-| State               | Type          | Description                                  |
-|:--------------------|---------------|:---------------------------------------------|
-| `state.isOnline`    | Boolean       | `true` when online, `false` when offline     |
-| `state.offlineData` | Array<Object> | Data stored in IndexedDB during offline mode |
+| State                    | Type          | Description                                                                                       |
+|:-------------------------|---------------|:--------------------------------------------------------------------------------------------------|
+| `state.isOnline`         | Boolean       | `true` when online, `false` when offline                                                          |
+| `state.offlineData`      | Array<Object> | Data stored in IndexedDB during offline mode                                                      |
+| `state.isSyncInProgress` | Boolean       | Can be used to indicate a loading state in the UI, informing the user that syncing is in progress |
 
 ### 🔄 Methods
 
@@ -91,7 +95,8 @@ const submitData = async () => {
 <br />
 
 ### 📌 Bulk vs Individual Syncing
-By default, this is set to false.
+
+> **Note:** The individual syncing is being used by default.
 
 #### 📥 Bulk Sync (bulkSync: true)
 
@@ -102,8 +107,14 @@ By default, this is set to false.
 
 ```json
 [
-  { "name": "Name A", "message": "Hello!" },
-  { "name": "Name B", "message": "Hey there!" }
+  {
+    "name": "Name A",
+    "message": "Hello!"
+  },
+  {
+    "name": "Name B",
+    "message": "Hey there!"
+  }
 ]
 ```
 
@@ -115,7 +126,8 @@ By default, this is set to false.
 **Example Requests**
 
 ```json
-{ "name": "Name A", "message": "Hello!" }
+{
+  "name": "Name A",
+  "message": "Hello!"
+}
 ```
-
-

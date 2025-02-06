@@ -5,7 +5,7 @@ interface SyncData {
 const DB_NAME = 'vueOfflineSync';
 const STORE_NAME = 'syncData';
 let DB_VERSION = 1;
-let keyPath: string = 'syncId';
+let keyPath: string = 'id';
 
 /**
  * Delete and recreate the database to apply the new keyPath.
