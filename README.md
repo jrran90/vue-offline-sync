@@ -37,10 +37,11 @@ const formData = ref({name: '', message: ''});
 // 2. Initialize
 const {state, saveOfflineData} = useOfflineSync({
   url: 'https://myapi.com/sync',
-  // method: 'POST',    // optional 
+  // method: 'POST',        // optional 
   // headers: {Authorization: 'Bearer your-token'}, // optional
-  // keyPath: 'syncId', // optional
-  // bulkSync: false,   // optional
+  // keyPath: 'syncId',     // optional
+  // bulkSync: false,       // optional
+  // uniqueKeys: ['name'],  // optional
 });
 
 const submitData = async () => {
