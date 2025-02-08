@@ -278,6 +278,6 @@ describe('useOfflineSync - Unique Constraint (uniqueKeys)', () => {
         await saveOfflineData({email: "unique@gmail.com", name: "Unique Name"}); // Fully unique → Should be inserted
 
         expect(saveData).toHaveBeenCalledTimes(1);
-        expect(saveData).toHaveBeenCalledWith({email: "unique@gmail.com", name: "Unique Name"});;
+        expect(saveData).toHaveBeenCalledWith({email: "unique@gmail.com", name: "Unique Name"});
     });
 });

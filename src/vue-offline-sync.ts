@@ -20,8 +20,12 @@ interface SyncState {
     isSyncInProgress: boolean;
 }
 
-export function useOfflineSync(options: UseOfflineSyncOptions) {
-    const channel = new BroadcastChannel('vue-offline-sync');
+export function useOfflineSync(options: UseOfflineSyncOptions): {
+    state: SyncState,
+    saveOfflineData: (data: SyncData) => Promise<void>,
+    syncOfflineData: () => Promise<void>
+} {
+    const channel: BroadcastChannel = new BroadcastChannel('vue-offline-sync');
 
     const state: SyncState = reactive({
         isOnline: navigator.onLine,
@@ -31,11 +35,11 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
 
     setKeyPath(options.keyPath || 'id');
 
-    const fetchOfflineData = async () => {
+    const fetchOfflineData = async (): Promise<void> => {
         state.offlineData = await getData();
     };
 
-    const syncOfflineData = async () => {
+    const syncOfflineData = async (): Promise<void> => {
         if (!state.isOnline || state.offlineData.length === 0) return;
 
         try {
@@ -49,13 +53,13 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
         }
 
         // Notify other tabs that a sync occurred.
-        channel.postMessage({ type: 'synced' });
+        channel.postMessage({type: 'synced'});
 
         // Refresh offline data after syncing
         await fetchOfflineData();
     };
 
-    const saveOfflineData = async (data: SyncData) => {
+    const saveOfflineData = async (data: SyncData): Promise<void> => {
         if (state.isOnline) {
             state.isSyncInProgress = true;
             try {
@@ -75,8 +79,8 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
             }
         } else {
             if (options.uniqueKeys && options.uniqueKeys.length > 0) {
-                const existingData = await getData()
-                const isDuplicate = existingData.some((entry: SyncData) =>
+                const existingData: SyncData[] = await getData()
+                const isDuplicate: boolean = existingData.some((entry: SyncData) =>
                     options.uniqueKeys.some(key => entry[key] === data[key])
                 )
 
@@ -90,7 +94,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
             await fetchOfflineData();
 
             // Notify other tabs that new data was saved.
-            channel.postMessage({ type: 'new-data' });
+            channel.postMessage({type: 'new-data'});
         }
     };
 
@@ -113,7 +117,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
         await clearData();
     };
 
-    const individualSync = async () => {
+    const individualSync = async (): Promise<void> => {
         for (const data of state.offlineData) {
             const {[options.keyPath || 'id']: _, ...payload} = data;
 
@@ -135,20 +139,20 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
         }
     };
 
-    onMounted(async () => {
-        window.addEventListener('online', async () => {
+    onMounted(async (): Promise<void> => {
+        window.addEventListener('online', async (): Promise<void> => {
             state.isOnline = true;
             state.isSyncInProgress = true;
             await syncOfflineData();
             state.isSyncInProgress = false;
         });
 
-        window.addEventListener('offline', async () => {
+        window.addEventListener('offline', async (): Promise<void> => {
             state.isOnline = false;
         });
 
         // Listen for updates from other tabs
-        channel.addEventListener('message', async (event) => {
+        channel.addEventListener('message', async (event): Promise<void> => {
             if (event.data.type === 'synced' || event.data.type === 'new-data') {
                 console.log('[vue-offline-sync] Sync event received from another tab, reloading offline data...');
                 await fetchOfflineData();
