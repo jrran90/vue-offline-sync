@@ -281,3 +281,51 @@ describe('useOfflineSync - Unique Constraint (uniqueKeys)', () => {
         expect(saveData).toHaveBeenCalledWith({email: "unique@gmail.com", name: "Unique Name"});
     });
 });
+
+describe('Retry Policy', () => {
+    it('should retry failed requests based on retryPolicy', async () => {
+        const fetchMock = vi.fn()
+            .mockRejectedValueOnce(new Error('Network Error'))
+            .mockRejectedValueOnce(new Error('Network Error'))
+            // .mockResolvedValue(new Response(JSON.stringify({ success: true }), { status: 200 }))
+            .mockResolvedValue({ok: true});
+
+        vi.stubGlobal('fetch', fetchMock);
+
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({
+                    url: 'https://mock-api.com/sync',
+                    retryPolicy: {maxAttempts: 3, delayMs: 100},
+                });
+            },
+            template: '<div></div>'
+        });
+
+        await wrapper.vm.saveOfflineData({id: 1, name: 'Test'});
+
+        console.log('Fetch mock calls:', fetchMock.mock.calls.length);
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+    })
+
+    /*it('should store data offline when maxAttempts is reached', async () => {
+        const fetchMock = vi.fn().mockRejectedValue(new Error('Network Error'));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const wrapper = mount({
+            setup() {
+                return useOfflineSync({
+                    url: 'https://mock-api.com/sync',
+                    retryPolicy: { maxAttempts: 2, delay: 50 },
+                });
+            },
+            template: '<div></div>'
+        });
+
+        await wrapper.vm.saveOfflineData({ id: 2, name: 'Failed Data' });
+
+        console.log('Fetch mock calls:', fetchMock.mock.calls.length);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(saveData).toHaveBeenCalledWith({ id: 2, name: 'Failed Data' });
+    })*/
+})

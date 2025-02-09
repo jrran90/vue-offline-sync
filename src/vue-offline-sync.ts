@@ -5,6 +5,11 @@ interface SyncData {
     [key: string]: any;
 }
 
+interface RetryPolicy {
+    maxAttempts: number;
+    delayMs: number;
+}
+
 interface UseOfflineSyncOptions {
     url: string;
     method?: string;
@@ -12,6 +17,7 @@ interface UseOfflineSyncOptions {
     keyPath?: string;
     bulkSync?: boolean;
     uniqueKeys?: string[];
+    retryPolicy?: RetryPolicy;
 }
 
 interface SyncState {
@@ -39,6 +45,21 @@ export function useOfflineSync(options: UseOfflineSyncOptions): {
         state.offlineData = await getData();
     };
 
+    const retry = async (fn: () => Promise<Response>, attempt = 1): Promise<Response | null> => {
+        try {
+            return await fn();
+        } catch (error) {
+            if (attempt >= (options.retryPolicy?.maxAttempts || 3)) {
+                console.error('[vue-offline-sync] Max retry attempts reached.')
+                return null;
+            }
+
+            console.warn(`[vue-offline-sync] Retrying... (${attempt})`);
+            await new Promise(res => setTimeout(res, options.retryPolicy?.delayMs || 1000));
+            return retry(fn, attempt + 1);
+        }
+    }
+
     const syncOfflineData = async (): Promise<void> => {
         if (!state.isOnline || state.offlineData.length === 0) return;
 
@@ -46,25 +67,23 @@ export function useOfflineSync(options: UseOfflineSyncOptions): {
             if (options.bulkSync) {
                 await applyBulkSync();
             } else {
-                await individualSync();
+                await applyIndividualSync();
             }
         } catch (error) {
-            console.error('Network error during sync:', error);
+            console.error('[vue-offline-sync] Network error during sync:', error);
         }
 
         // Notify other tabs that a sync occurred.
         channel.postMessage({type: 'synced'});
-
-        // Refresh offline data after syncing
         await fetchOfflineData();
     };
 
-    const saveOfflineData = async (data: SyncData): Promise<void> => {
+    const saveOfflineData = async (data: SyncData) => {
         if (state.isOnline) {
             state.isSyncInProgress = true;
             try {
                 const {[options.keyPath || 'id']: _, ...rest} = data;
-                await fetch(options.url, {
+                const request = async () => await fetch(options.url, {
                     method: options.method || 'POST',
                     body: JSON.stringify(rest),
                     headers: {
@@ -72,31 +91,49 @@ export function useOfflineSync(options: UseOfflineSyncOptions): {
                         ...options.headers,
                     },
                 });
+
+                const response = await retry(request);
+                if (!response || !response.ok) {
+                    console.error('[vue-offline-sync] Request failed. Storing offline data.', data);
+                    await storeOfflineData(data);
+                }
             } catch (error) {
-                console.error('Network error while syncing:', error);
+                console.error('[vue-offline-sync] Network error while syncing:', error);
+                await storeOfflineData(data);
             } finally {
                 state.isSyncInProgress = false;
             }
         } else {
-            if (options.uniqueKeys && options.uniqueKeys.length > 0) {
-                const existingData: SyncData[] = await getData()
-                const isDuplicate: boolean = existingData.some((entry: SyncData) =>
-                    options.uniqueKeys.some(key => entry[key] === data[key])
-                )
-
-                if (isDuplicate) {
-                    console.warn('[vue-offline-sync] Duplicate entry detected. Skipping insert: ', data);
-                    return;
-                }
-            }
-
-            await saveData(data);
-            await fetchOfflineData();
-
-            // Notify other tabs that new data was saved.
-            channel.postMessage({type: 'new-data'});
+            await storeOfflineData(data);
         }
     };
+
+    /**
+     * Check if a data entry already exists based on uniqueKeys
+     */
+    const hasDuplicateEntry = async (data: SyncData) => {
+        if (!options.uniqueKeys?.length) return false;
+
+        const existingData: SyncData[] = await getData()
+        return existingData.some((entry: SyncData) =>
+            options.uniqueKeys.some(key => entry[key] === data[key])
+        );
+    }
+
+    /**
+     * Process and store data into IndexedDB
+     */
+    const storeOfflineData = async (data: SyncData) => {
+        if (await hasDuplicateEntry(data)) {
+            console.warn('[vue-offline-sync] Duplicate entry detected. Skipping insert: ', data);
+            return;
+        }
+
+        await saveData(data);
+        await fetchOfflineData();
+        // Notify other tabs that new data was saved.
+        channel.postMessage({type: 'new-data'});
+    }
 
     const applyBulkSync = async (): Promise<void> => {
         const dataToSync = state.offlineData.map(({[options.keyPath || 'id']: _, ...rest}) => rest);
@@ -110,14 +147,14 @@ export function useOfflineSync(options: UseOfflineSyncOptions): {
         });
 
         if (!response.ok) {
-            console.error(`Bulk sync failed with status: ${response.status}`);
+            console.error(`[vue-offline-sync] Bulk sync failed with status: ${response.status}`);
             return;
         }
 
         await clearData();
     };
 
-    const individualSync = async (): Promise<void> => {
+    const applyIndividualSync = async (): Promise<void> => {
         for (const data of state.offlineData) {
             const {[options.keyPath || 'id']: _, ...payload} = data;
 
@@ -131,7 +168,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions): {
             });
 
             if (!response.ok) {
-                console.error(`Sync failed with status: ${response.status}`);
+                console.error(`[vue-offline-sync] Sync failed with status: ${response.status}`);
                 continue;
             }
 
@@ -140,7 +177,11 @@ export function useOfflineSync(options: UseOfflineSyncOptions): {
     };
 
     onMounted(async (): Promise<void> => {
+        console.log('[vue-offline-sync] Component mounted. Fetching offline data...');
+        await fetchOfflineData();
+
         window.addEventListener('online', async (): Promise<void> => {
+            console.log('[vue-offline-sync] Device is back online. Starting sync...');
             state.isOnline = true;
             state.isSyncInProgress = true;
             await syncOfflineData();
@@ -148,6 +189,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions): {
         });
 
         window.addEventListener('offline', async (): Promise<void> => {
+            console.log('[vue-offline-sync] Device is offline.');
             state.isOnline = false;
         });
 
@@ -159,7 +201,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions): {
             }
         });
 
-        await fetchOfflineData();
+        console.log('[vue-offline-sync] Initialization complete.');
     });
 
     return {
