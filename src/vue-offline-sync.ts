@@ -1,5 +1,5 @@
 import {onMounted, reactive} from 'vue';
-import {clearData, getData, removeData, saveData, setKeyPath} from './utils/indexedDB';
+import {clearData, getData, removeData, saveData} from './utils/indexedDB';
 
 interface SyncData {
     [key: string]: any;
@@ -9,7 +9,6 @@ interface UseOfflineSyncOptions {
     url: string;
     method?: string;
     headers?: Record<string, string>;
-    keyPath?: string;
     bulkSync?: boolean;
     uniqueKeys?: string[];
 }
@@ -21,6 +20,7 @@ interface SyncState {
 }
 
 export function useOfflineSync(options: UseOfflineSyncOptions) {
+    const keyPath: string = 'syncId';
     const channel = new BroadcastChannel('vue-offline-sync');
 
     const state: SyncState = reactive({
@@ -28,8 +28,6 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
         offlineData: [],
         isSyncInProgress: false,
     });
-
-    setKeyPath(options.keyPath || 'id');
 
     const fetchOfflineData = async () => {
         state.offlineData = await getData();
@@ -45,7 +43,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
                 await individualSync();
             }
         } catch (error) {
-            console.error('Network error during sync:', error);
+            console.error('[vue-offline-sync] Network error during sync:', error);
         }
 
         // Notify other tabs that a sync occurred.
@@ -59,7 +57,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
         if (state.isOnline) {
             state.isSyncInProgress = true;
             try {
-                const {[options.keyPath || 'id']: _, ...rest} = data;
+                const {[keyPath]: _, ...rest} = data;
                 await fetch(options.url, {
                     method: options.method || 'POST',
                     body: JSON.stringify(rest),
@@ -69,7 +67,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
                     },
                 });
             } catch (error) {
-                console.error('Network error while syncing:', error);
+                console.error('[vue-offline-sync] Network error while syncing:', error);
             } finally {
                 state.isSyncInProgress = false;
             }
@@ -95,7 +93,9 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
     };
 
     const applyBulkSync = async (): Promise<void> => {
-        const dataToSync = state.offlineData.map(({[options.keyPath || 'id']: _, ...rest}) => rest);
+        if (state.offlineData.length === 0) return;
+
+        const dataToSync = state.offlineData.map(({[keyPath]: _, ...rest}) => rest);
         const response = await fetch(options.url, {
             method: options.method || 'POST',
             body: JSON.stringify(dataToSync),
@@ -106,7 +106,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
         });
 
         if (!response.ok) {
-            console.error(`Bulk sync failed with status: ${response.status}`);
+            console.error(`[vue-offline-sync] Bulk sync failed with status: ${response.status}`);
             return;
         }
 
@@ -115,7 +115,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
 
     const individualSync = async () => {
         for (const data of state.offlineData) {
-            const {[options.keyPath || 'id']: _, ...payload} = data;
+            const {[keyPath]: _, ...payload} = data;
 
             const response = await fetch(options.url, {
                 method: options.method || 'POST',
@@ -127,11 +127,11 @@ export function useOfflineSync(options: UseOfflineSyncOptions) {
             });
 
             if (!response.ok) {
-                console.error(`Sync failed with status: ${response.status}`);
+                console.error(`[vue-offline-sync] Sync failed with status: ${response.status}`);
                 continue;
             }
 
-            await removeData(data[options.keyPath || 'id']);
+            await removeData(data[keyPath]);
         }
     };
 

@@ -1,138 +1,133 @@
-import { reactive as m, onMounted as O } from "vue";
-const S = "vueOfflineSync", o = "syncData";
-let D = 1, f = "id";
-function P(e) {
-  f !== e && (console.warn(`[IndexedDB] KeyPath changed from '${f}' to '${e}', resetting DB...`), f = e, D++, indexedDB.deleteDatabase(S));
-}
-function u() {
+import { reactive as D, onMounted as m } from "vue";
+const p = "vueOfflineSync", c = "syncData", v = 1, d = "syncId";
+function y() {
   return new Promise((e, a) => {
-    const t = indexedDB.open(S, D);
-    t.onerror = () => a(new Error("Failed to open IndexedDB.")), t.onsuccess = () => e(t.result), t.onupgradeneeded = (r) => {
-      const c = r.target.result;
-      c.objectStoreNames.contains(o) && c.deleteObjectStore(o), c.createObjectStore(o, { keyPath: f, autoIncrement: !0 });
+    const t = indexedDB.open(p, v);
+    t.onerror = () => a(new Error("Failed to open IndexedDB.")), t.onsuccess = () => e(t.result), t.onupgradeneeded = (n) => {
+      const r = n.target.result;
+      r.objectStoreNames.contains(c) && r.deleteObjectStore(c), r.createObjectStore(c, { keyPath: d, autoIncrement: !0 });
     };
   });
 }
-async function b(e) {
-  const a = await u();
-  return new Promise((t, r) => {
-    const s = a.transaction(o, "readwrite").objectStore(o);
-    f in e || (e[f] = Date.now());
-    const i = s.put(e);
-    i.onsuccess = () => t(e), i.onerror = () => r(new Error("Failed to save data."));
+async function O(e) {
+  const a = await y();
+  return new Promise((t, n) => {
+    const o = a.transaction(c, "readwrite").objectStore(c);
+    d in e || (e[d] = Date.now());
+    const i = o.put(e);
+    i.onsuccess = () => t(e), i.onerror = () => n(new Error("Failed to save data."));
   });
 }
 async function h() {
-  const e = await u();
+  const e = await y();
   return new Promise((a, t) => {
-    const s = e.transaction(o, "readonly").objectStore(o).getAll();
-    s.onsuccess = () => a(s.result), s.onerror = () => t(new Error("Failed to retrieve data."));
+    const o = e.transaction(c, "readonly").objectStore(c).getAll();
+    o.onsuccess = () => a(o.result), o.onerror = () => t(new Error("Failed to retrieve data."));
   });
 }
-async function v() {
-  const e = await u();
+async function b() {
+  const e = await y();
   return new Promise((a, t) => {
-    const s = e.transaction(o, "readwrite").objectStore(o).clear();
-    s.onsuccess = () => a(), s.onerror = () => t(new Error("Failed to clear data."));
+    const o = e.transaction(c, "readwrite").objectStore(c).clear();
+    o.onsuccess = () => a(), o.onerror = () => t(new Error("Failed to clear data."));
   });
 }
-async function p(e) {
-  const a = await u();
-  return new Promise((t, r) => {
-    const i = a.transaction(o, "readwrite").objectStore(o).delete(e);
-    i.onsuccess = () => t(), i.onerror = () => r(new Error(`Failed to remove entry with id: ${e}`));
+async function P(e) {
+  const a = await y();
+  return new Promise((t, n) => {
+    const i = a.transaction(c, "readwrite").objectStore(c).delete(e);
+    i.onsuccess = () => t(), i.onerror = () => n(new Error(`Failed to remove entry with id: ${e}`));
   });
 }
-function E(e) {
-  const a = new BroadcastChannel("vue-offline-sync"), t = m({
+function j(e) {
+  const a = "syncId", t = new BroadcastChannel("vue-offline-sync"), n = D({
     isOnline: navigator.onLine,
     offlineData: [],
     isSyncInProgress: !1
-  });
-  P(e.keyPath || "id");
-  const r = async () => {
-    t.offlineData = await h();
-  }, c = async () => {
-    if (!(!t.isOnline || t.offlineData.length === 0)) {
+  }), r = async () => {
+    n.offlineData = await h();
+  }, o = async () => {
+    if (!(!n.isOnline || n.offlineData.length === 0)) {
       try {
-        e.bulkSync ? await i() : await g();
-      } catch (n) {
-        console.error("Network error during sync:", n);
+        e.bulkSync ? await S() : await g();
+      } catch (s) {
+        console.error("[vue-offline-sync] Network error during sync:", s);
       }
-      a.postMessage({ type: "synced" }), await r();
+      t.postMessage({ type: "synced" }), await r();
     }
-  }, s = async (n) => {
-    if (t.isOnline) {
-      t.isSyncInProgress = !0;
+  }, i = async (s) => {
+    if (n.isOnline) {
+      n.isSyncInProgress = !0;
       try {
-        const { [e.keyPath || "id"]: l, ...y } = n;
+        const { [a]: l, ...u } = s;
         await fetch(e.url, {
           method: e.method || "POST",
-          body: JSON.stringify(y),
+          body: JSON.stringify(u),
           headers: {
             "Content-Type": "application/json",
             ...e.headers
           }
         });
       } catch (l) {
-        console.error("Network error while syncing:", l);
+        console.error("[vue-offline-sync] Network error while syncing:", l);
       } finally {
-        t.isSyncInProgress = !1;
+        n.isSyncInProgress = !1;
       }
     } else {
       if (e.uniqueKeys && e.uniqueKeys.length > 0 && (await h()).some(
-        (d) => e.uniqueKeys.some((w) => d[w] === n[w])
+        (f) => e.uniqueKeys.some((w) => f[w] === s[w])
       )) {
-        console.warn("[vue-offline-sync] Duplicate entry detected. Skipping insert: ", n);
+        console.warn("[vue-offline-sync] Duplicate entry detected. Skipping insert: ", s);
         return;
       }
-      await b(n), await r(), a.postMessage({ type: "new-data" });
+      await O(s), await r(), t.postMessage({ type: "new-data" });
     }
-  }, i = async () => {
-    const n = t.offlineData.map(({ [e.keyPath || "id"]: y, ...d }) => d), l = await fetch(e.url, {
+  }, S = async () => {
+    if (n.offlineData.length === 0) return;
+    const s = n.offlineData.map(({ [a]: u, ...f }) => f), l = await fetch(e.url, {
       method: e.method || "POST",
-      body: JSON.stringify(n),
+      body: JSON.stringify(s),
       headers: {
         "Content-Type": "application/json",
         ...e.headers
       }
     });
     if (!l.ok) {
-      console.error(`Bulk sync failed with status: ${l.status}`);
+      console.error(`[vue-offline-sync] Bulk sync failed with status: ${l.status}`);
       return;
     }
-    await v();
+    await b();
   }, g = async () => {
-    for (const n of t.offlineData) {
-      const { [e.keyPath || "id"]: l, ...y } = n, d = await fetch(e.url, {
+    for (const s of n.offlineData) {
+      const { [a]: l, ...u } = s, f = await fetch(e.url, {
         method: e.method || "POST",
-        body: JSON.stringify(y),
+        body: JSON.stringify(u),
         headers: {
           "Content-Type": "application/json",
           ...e.headers
         }
       });
-      if (!d.ok) {
-        console.error(`Sync failed with status: ${d.status}`);
+      if (!f.ok) {
+        console.error(`[vue-offline-sync] Sync failed with status: ${f.status}`);
         continue;
       }
-      await p(n[e.keyPath || "id"]);
+      await P(s[a]);
     }
   };
-  return O(async () => {
+  return m(async () => {
     window.addEventListener("online", async () => {
-      t.isOnline = !0, t.isSyncInProgress = !0, await c(), t.isSyncInProgress = !1;
+      n.isOnline = !0, n.isSyncInProgress = !0, await o(), n.isSyncInProgress = !1;
     }), window.addEventListener("offline", async () => {
-      t.isOnline = !1;
-    }), a.addEventListener("message", async (n) => {
-      (n.data.type === "synced" || n.data.type === "new-data") && (console.log("[vue-offline-sync] Sync event received from another tab, reloading offline data..."), await r());
+      n.isOnline = !1;
+    }), t.addEventListener("message", async (s) => {
+      (s.data.type === "synced" || s.data.type === "new-data") && (console.log("[vue-offline-sync] Sync event received from another tab, reloading offline data..."), await r());
     }), await r();
   }), {
-    state: t,
-    saveOfflineData: s,
-    syncOfflineData: c
+    state: n,
+    saveOfflineData: i,
+    syncOfflineData: o
   };
 }
 export {
-  E as useOfflineSync
+  j as useOfflineSync
 };
