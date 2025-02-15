@@ -10,6 +10,7 @@ Uses **IndexedDB** for offline storage.
 - Custom API endpoint
 - Uses IndexedDB for offline storage
 - Bulk or individual syncing
+- Configurable retry policy for failed requests
 
 ---
 
@@ -37,10 +38,11 @@ const formData = ref({name: '', message: ''});
 // 2. Initialize
 const {state, saveOfflineData} = useOfflineSync({
   url: 'https://myapi.com/sync',
-  // method: 'POST',        // optional 
-  // headers: {Authorization: 'Bearer your-token'}, // optional
-  // bulkSync: false,       // optional
-  // uniqueKeys: ['name'],  // optional
+  // method: 'POST',                                  // optional 
+  // headers: {Authorization: 'Bearer your-token'},   // optional
+  // bulkSync: false,                                 // optional
+  // uniqueKeys: ['name'],                            // optional
+  // retryPolicy: { maxAttempts: 3, delayMs: 1000 },  // optional
 });
 
 const submitData = async () => {
@@ -69,13 +71,14 @@ const submitData = async () => {
 
 ### ⚙️ Options
 
-| Option       | Type     | Required | Default     | Description                                                                                                                                                |
-|:-------------|:---------|:---------|:------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `url`        | String   | ✅ Yes    | `undefined` | API endpoint to sync data                                                                                                                                  |
-| `method`     | String   | ❌ No     | "POST"      | HTTP method (e.g., "POST", "PUT", etc.)                                                                                                                    |
-| `headers`    | Object   | ❌ No     | {}          | Additional headers (e.g., authentication token)                                                                                                            |
-| `bulkSync`   | Boolean  | ❌ No     | false       | Set to true if your API accepts batch sync requests                                                                                                        |
-| `uniqueKeys` | String[] | ❌ No     | `undefined` | Specifies the columns that must have unique values across all entries. If any of the defined columns contain duplicate values, the entry will be rejected. |
+| Option        | Type     | Required | Default                               | Description                                                                                                                                                |
+|:--------------|:---------|:---------|:--------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `url`         | String   | ✅ Yes    | `undefined`                           | API endpoint to sync data                                                                                                                                  |
+| `method`      | String   | ❌ No     | "POST"                                | HTTP method (e.g., "POST", "PUT", etc.)                                                                                                                    |
+| `headers`     | Object   | ❌ No     | {}                                    | Additional headers (e.g., authentication token)                                                                                                            |
+| `bulkSync`    | Boolean  | ❌ No     | false                                 | Set to true if your API accepts batch sync requests                                                                                                        |
+| `uniqueKeys`  | String[] | ❌ No     | `undefined`                           | Specifies the columns that must have unique values across all entries. If any of the defined columns contain duplicate values, the entry will be rejected. |
+| `retryPolicy` | Object   | ❌ No     | ```{maxAttempts: 1, delayMs: 1000}``` | Configures automatic retries for failed requests. See **Retry Policy** below.                                                                              |
 
 ### 📡 States
 
@@ -91,6 +94,31 @@ const submitData = async () => {
 |:------------------------|:--------------------------------------------------------------------|
 | saveOfflineData(object) | Saves data to IndexedDB when offline, or syncs directly when online |
 | syncOfflineData()       | Manually triggers syncing of offline data                           |
+
+<br />
+
+### 🔄 Retry Policy
+
+The `retryPolicy` option allows configuring **automatic retries** for failed API requests.
+
+| Property      | Type   | Default | Description                                    |
+|---------------|--------|---------|------------------------------------------------|
+| `maxAttempts` | Number | `1`     | Maximum number of retries before failing       |
+| `delayMs`     | Number | `1000`  | Delay (in milliseconds) between retry attempts |
+
+**Example Usage:**
+
+```js
+const {state, saveOfflineData} = useOfflineSync({
+    url: 'https://myapi.com/sync',
+    retryPolicy: {
+        maxAttempts: 5,
+        delayMs: 2000,
+    }
+});
+```
+
+> 💡 If a request fails, it will retry up to 5 times with a **2-second delay** between each attempt.
 
 <br />
 
