@@ -47,7 +47,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions): {
         try {
             return await fn();
         } catch (error) {
-            if (attempt >= (options.retryPolicy?.maxAttempts || 3)) {
+            if (attempt >= (options.retryPolicy?.maxAttempts || 1)) {
                 console.error('[vue-offline-sync] Max retry attempts reached.')
                 return null;
             }
@@ -81,7 +81,7 @@ export function useOfflineSync(options: UseOfflineSyncOptions): {
             state.isSyncInProgress = true;
             try {
                 const {[keyPath]: _, ...rest} = data;
-                const request = async ()  => await fetch(options.url, {
+                const request = async () => await fetch(options.url, {
                     method: options.method || 'POST',
                     body: JSON.stringify(rest),
                     headers: {

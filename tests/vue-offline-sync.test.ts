@@ -1,5 +1,5 @@
 import {vi, describe, it, expect, beforeEach, afterEach} from 'vitest';
-import {saveData, getData, clearData, removeData, setKeyPath} from '../src/utils/indexedDB';
+import {saveData, getData, clearData, removeData} from '../src/utils/indexedDB';
 import {mount} from "@vue/test-utils";
 import {useOfflineSync} from '../src/vue-offline-sync';
 
@@ -21,7 +21,6 @@ vi.mock('../src/utils/indexedDB', () => ({
     getData: vi.fn(() => Promise.resolve([{id: 1, name: 'Test Data'}])),
     clearData: vi.fn(),
     removeData: vi.fn(),
-    setKeyPath: vi.fn(),
 }));
 
 // Properly typed fetch mock
@@ -190,11 +189,15 @@ describe('useOfflineSync Multi-Tab Support', () => {
             template: '<div></div>'
         });
 
-        // Simulate an event being received
-        const eventHandler = addEventListenerMock.mock.calls[0][1];
-        const event = {data: {type: 'synced'}};
+        await new Promise(resolve => setTimeout(resolve, 10));
 
-        await eventHandler(event);
+        expect(addEventListenerMock).toHaveBeenCalledWith('message', expect.any(Function));
+
+        // Extract the listener function that was registered
+        const eventListener = addEventListenerMock.mock.calls[0][1];
+
+        // Simulate a broadcast event being received
+        eventListener({data: {type: 'synced'}});
 
         expect(getData).toHaveBeenCalled();
     });
@@ -308,7 +311,7 @@ describe('Retry Policy', () => {
         expect(fetchMock).toHaveBeenCalledTimes(3);
     })
 
-    /*it('should store data offline when maxAttempts is reached', async () => {
+    it('should store data offline when maxAttempts is reached', async () => {
         const fetchMock = vi.fn().mockRejectedValue(new Error('Network Error'));
         vi.stubGlobal('fetch', fetchMock);
 
@@ -316,7 +319,7 @@ describe('Retry Policy', () => {
             setup() {
                 return useOfflineSync({
                     url: 'https://mock-api.com/sync',
-                    retryPolicy: { maxAttempts: 2, delay: 50 },
+                    retryPolicy: { maxAttempts: 2, delayMs: 50 },
                 });
             },
             template: '<div></div>'
@@ -327,5 +330,5 @@ describe('Retry Policy', () => {
         console.log('Fetch mock calls:', fetchMock.mock.calls.length);
         expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(saveData).toHaveBeenCalledWith({ id: 2, name: 'Failed Data' });
-    })*/
+    })
 })
