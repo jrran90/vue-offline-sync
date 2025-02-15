@@ -78,7 +78,7 @@ const submitData = async () => {
 | `headers`     | Object   | ❌ No     | {}                                    | Additional headers (e.g., authentication token)                                                                                                            |
 | `bulkSync`    | Boolean  | ❌ No     | false                                 | Set to true if your API accepts batch sync requests                                                                                                        |
 | `uniqueKeys`  | String[] | ❌ No     | `undefined`                           | Specifies the columns that must have unique values across all entries. If any of the defined columns contain duplicate values, the entry will be rejected. |
-| `retryPolicy` | Object   | ❌ No     | ```{maxAttempts: 1, delayMs: 1000}``` | Configures automatic retries for failed requests. See **Retry Policy** below.                                                                              |
+| `retryPolicy` | Object   | ❌ No     | ```{maxAttempts: 1, delayMs: 1000}``` | Configures automatic retries for failed requests. See **[Retry Policy](#-retry-policy)** below.                                                            |
 
 ### 📡 States
 
@@ -94,8 +94,6 @@ const submitData = async () => {
 |:------------------------|:--------------------------------------------------------------------|
 | saveOfflineData(object) | Saves data to IndexedDB when offline, or syncs directly when online |
 | syncOfflineData()       | Manually triggers syncing of offline data                           |
-
-<br />
 
 ### 🔄 Retry Policy
 
