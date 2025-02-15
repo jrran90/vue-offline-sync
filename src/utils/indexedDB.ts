@@ -2,22 +2,10 @@ interface SyncData {
     [key: string]: any;
 }
 
-const DB_NAME = 'vueOfflineSync';
-const STORE_NAME = 'syncData';
-let DB_VERSION = 1;
-let keyPath: string = 'id';
-
-/**
- * Delete and recreate the database to apply the new keyPath.
- */
-export function setKeyPath(newKeyPath: string): void {
-    if (keyPath !== newKeyPath) {
-        console.warn(`[IndexedDB] KeyPath changed from '${keyPath}' to '${newKeyPath}', resetting DB...`);
-        keyPath = newKeyPath;
-        DB_VERSION++;
-        indexedDB.deleteDatabase(DB_NAME);
-    }
-}
+const DB_NAME: string = 'vueOfflineSync';
+const STORE_NAME: string = 'syncData';
+const DB_VERSION: number = 1;
+const keyPath: string = 'syncId';
 
 export function openDB(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
